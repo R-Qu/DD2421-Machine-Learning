@@ -1,0 +1,332 @@
+\documentclass[11pt]{article}
+
+\usepackage{graphicx}
+\usepackage{tcolorbox}
+
+
+\title{\vspace{-5.0cm}DD2421 Machine Learning - Lab 1: Decision Trees \\ Python version}
+\author{\"Orjan Ekeberg\\ Updated 2017 by Martin Hjelm \& Nils Bore }
+
+\begin{document}
+\maketitle
+
+\section{Preparations}
+
+In this lab you will use a set of predefined Python functions to
+build and manipulate decision trees.  In order to run this, you
+need to have Python installed.  We also use the Qt graphics library,
+PyQt, for plotting. PyQt comes in different versions 4 or 5. For
+Mac users version 5 is recommended. 
+
+For different Windows versions consult the Internet. For Mac use Homebrew 
+to install Python and PyQt5. For Ubuntu Python and PyQt are available in the 
+debian package repository. Python and PyQt are also installed on the Unix computers in 
+the computer halls.
+
+\textbf{Note:} It is possible to do the lab without using the
+plotting functions found in PyQt, but then you will not be able to see the generated
+decision trees.
+
+
+\section{MONK datasets}
+
+This lab uses the artificial MONK dataset from the UC Irvine repository.
+The MONK's problems are a collection of three binary classification
+problems MONK-1, MONK-2 and MONK-3 over a six-attribute discrete domain.
+The attributes \(a_1, a_2, a_3, a_4, a_5, a_6\) may take the following values:
+
+\begin{center}
+  \begin{tabular}{lll}
+    \(a_1 \in \{1, 2, 3\}\) &
+    \(a_2 \in \{1, 2, 3\}\) &
+    \(a_3 \in \{1, 2\}\)\\
+    \(a_4 \in \{1, 2, 3\}\) &
+    \(a_5 \in \{1, 2, 3, 4\}\) &
+    \(a_6 \in \{1, 2\}\)\\
+  \end{tabular}
+\end{center}
+Consequently, there are 432 possible combinations of attribute values. 
+The \emph{true} concepts underlying each MONK's problem are given by
+table \ref{tab:truemonk}.
+
+\begin{tcolorbox}
+\textbf{Assignment 0:}
+Each one of the datasets has properties which makes them hard to learn.
+Motivate which of the three problems is most difficult for a decision
+tree algorithm to learn.
+\end{tcolorbox}
+
+\begin{table}
+  \caption{True concepts behind the MONK datasets \label{tab:truemonk}}
+  \begin{center}
+    \begin{tabular}{|l|l|}
+      \hline
+      MONK-1 & \((a_1=a_2)\vee(a_5=1)\)\\
+      % (attribute\_1 = attribute\_2) or (attribute\_5 = 1)
+      \hline
+      MONK-2 & \(a_i=1\) for exacly two \(i \in \{1, 2, \ldots, 6\}\)\\
+      % (attribute\_n = 1) for EXACTLY TWO choices of n $\in \{1,2,...,6\}$
+      \hline
+      MONK-3 & \((a_5=1 \wedge a_4=1) \vee (a_5\ne 4 \wedge a_2\ne 3)\)\\
+      %(attribute\_5  = 3 and attribute\_4  = 1) or\\
+      %(attribute\_5 != 4 and attribute\_2 != 3)\\
+      \hline
+    \end{tabular}
+  \end{center}
+  MONK-3 has 5\% additional noise (misclassification) in the training set.
+\end{table}
+
+\begin{table}
+  \caption{Characteristics of the three MONK datasets \label{tab:monk}}
+  \begin{center}
+    \begin{tabular}{|c|c|c|c|c|}\hline
+      Name & \# train & \# test & \# attributes & \# classes\\ \hline \hline
+      MONK-1 & 124 & 432 & 6 & 2\\ \hline
+      MONK-2 & 169 & 432 & 6 & 2\\ \hline
+      MONK-3 & 122 & 432 & 6 & 2\\ \hline
+    \end{tabular}
+  \end{center}
+\end{table}
+
+The data consists of three separate datasets MONK-1, MONK-2 and
+MONK-3.  Each dataset is further divided into a training and test set,
+where the first one is used for learning the decision tree, and the
+second one to evaluate its classification accuracy (see table
+\ref{tab:monk}).  The datasets are available in
+the file \verb!monkdata.py!.  In particular, six variables are defined
+which contain the datasets:
+\verb!monk1!, \verb!monk1test!, \verb!monk2!,
+\verb!monk2test!, \verb!monk3! and \verb!monk3test!.
+Each dataset is a sequence (more precisely, a \emph{tuple}) of instances
+of the class \texttt{Sample}, defined in the same file.
+
+You can access the data in your own Python scripts by importing
+the \texttt{monkdata.py} file as a module like this:
+\begin{verbatim}
+import monkdata as m
+\end{verbatim}
+
+This makes the variable \texttt{m} a shorthand for the module so that
+you can access the datasets by writing \verb!m.monk1!, etc.
+
+
+\section{Entropy}
+
+In order to decide on which attribute to split, decision tree learning
+algorithms such as ID3 and C4.5 use a statistical property called
+\emph{information gain}.  It measures how well a particular attribute
+distinguishes among different target classifications.  Information
+gain is measured in terms of the expected reduction in the
+\emph{entropy} or impurity of the data.  The entropy of an arbitrary
+collection of examples is measured by
+\begin{equation}
+\textrm{Entropy}(S) = - \sum_i p_i \log_2 p_i
+\label{eq:entropy}
+\end{equation}
+in which $p_i$ denotes the proportion of examples of class $i$ in $S$. 
+The monk dataset is a binary classification problem (class 0 or 1) and
+therefore equation (\ref{eq:entropy}) simplifies to
+\begin{equation}
+\textrm{Entropy}(S) = - p_0 \log_2 p_0 - p_1 \log_2 p_1
+\end{equation}
+where $p_0$ and $p_1=1-p_0$ are the proportions of examples belonging to class 
+$0$ and $1$.\\[2ex]
+
+\begin{tcolorbox}
+\textbf{Assignment 1:} The file \verb!dtree.py! defines a function
+\texttt{entropy} which calculates the entropy of a dataset.  Import
+this file along with the monks datasets and use it to calculate the
+entropy of the \emph{training} datasets.
+\end{tcolorbox}
+
+
+\begin{center}
+  \begin{tabular*}{0.9\textwidth}{|c|c@{\extracolsep{\fill}}c|}
+    \hline
+    Dataset & Entropy & \\
+    \hline\hline
+    MONK-1 & & \\
+    \hline
+    MONK-2 & & \\
+    \hline
+    MONK-3 & & \\
+    \hline
+  \end{tabular*}
+\end{center}
+
+\begin{tcolorbox}
+\textbf{Assignment 2:} 
+Explain entropy for a uniform distribution 
+%and a Gaussian distribution with high and low variance.
+and a non-uniform distribution, present some example distributions with high and low entropy.
+\end{tcolorbox}
+
+
+\section{Information Gain}
+
+The information gain measures the expected reduction in impurity
+caused by partitioning the examples according to an attribute.
+It thereby indicates the effectiveness of an attribute in classifying the 
+training data. The information gain of an attribute $A$, relative to 
+a collection of examples $S$ is defined as
+\begin{equation}
+\textrm{Gain}(S,A) = \textrm{Entropy}(S) -
+ \sum_{k \in \textrm{values}(A)} \frac{|S_k|}{|S|} \textrm{Entropy}(S_k)
+\end{equation}
+where $S_k$ is the subset of examples in $S$ for the attribute $A$ has the value $k$.
+
+
+\begin{tcolorbox}
+\textbf{Assignment 3:} Use the function \texttt{averageGain} (defined
+in \verb!dtree.py!)  to calculate the expected information gain
+corresponding to each of the six attributes.  Note that the attributes
+are represented as instances of the class Attribute (defined in
+\verb!monkdata.py!) which you can access via \verb!m.attributes[0]!,
+..., \verb!m.attributes[5]!. Based on the results, which attribute 
+should be used for splitting the examples at the root node? 
+\end{tcolorbox}
+
+\begin{center}
+  Information Gain\\[0.5ex]
+  \begin{tabular*}{\textwidth}{|c@{\extracolsep{\fill}}|c|c|c|c|c|c|}
+    \hline
+    Dataset & $a_1$ & $a_2$ & $a_3$ & $a_4$ & $a_5$ & $a_6$ \\
+    \hline
+    \verb!MONK-1 ! & & & & & & \\
+    \hline
+    \verb!MONK-2 ! & & & & & & \\
+    \hline
+    \verb!MONK-3 ! & & & & & & \\
+    \hline
+  \end{tabular*}
+\end{center}
+
+\begin{tcolorbox}
+\textbf{Assignment 4:} 
+For splitting we choose the attribute that maximizes the information gain, Eq.3. 
+Looking at Eq.3 how does the entropy of the subsets, $S_k$, look like when the 
+information gain is maximized? How can we motivate using the information gain
+as a heuristic for picking an attribute for splitting? Think about reduction
+in entropy after the split and what the entropy implies.
+\end{tcolorbox}
+
+
+\section{Building Decision Trees}
+
+Split the \texttt{monk1} data into subsets according to the selected
+attribute using the function \texttt{select} (again, defined in
+\verb!dtree.py!)  and compute the information gains for the nodes on
+the next level of the tree.  Which attributes should be tested for
+these nodes?
+
+For the \texttt{monk1} data draw the decision tree up to the first two
+levels and assign the majority class of the subsets that resulted from
+the two splits to the leaf nodes.  You can use the predefined function
+\texttt{mostCommon} (in \verb!dtree.py!) to obtain the majority class
+for a dataset.
+
+Now compare your results with that of a predefined routine for ID3.
+Use the function \verb!buildTree(data, m.attributes)! to build the
+decision tree.  If you pass a third, optional, parameter to
+\texttt{buildTree}, you can limit the depth of the generated tree.
+
+You can use \texttt{print} to print the resulting tree in text form,
+or use the function \texttt{drawTree} from the file \verb!drawtree_qt4.py! 
+or \verb!drawtree_qt5.py!, depending on your PyQt version, to draw a graphical 
+representation.
+
+\begin{tcolorbox}
+\textbf{Assignment 5:} 
+Build the full decision trees for all three Monk datasets using
+\texttt{buildTree}.  Then, use the function \texttt{check} to measure the performance
+of the decision tree on both the training and test datasets.
+
+For example to built a tree for \texttt{monk1} and compute the performance on the test data
+you could use
+\begin{verbatim}
+import monkdata as m
+import dtree as d
+
+t=d.buildTree(m.monk1, m.attributes);
+print(d.check(t, m.monk1test))
+\end{verbatim}
+
+Compute the train and test set errors for the three Monk datasets for
+the full trees. Were your assumptions about the datasets correct? Explain the 
+results you get for the training and test datasets.
+\end{tcolorbox}
+
+\begin{center}
+  \begin{tabular*}{0.7\textwidth}{|c|@{\extracolsep{\fill}}c|c|}
+    \hline
+    & $E_\textrm{train}$ & $E_\textrm{test}$ \\
+    \hline\hline
+    \verb#MONK-1# & & \\
+    \hline
+    \verb#MONK-2# & & \\
+    \hline
+    \verb#MONK-3# & & \\
+    \hline
+  \end{tabular*}
+\end{center}
+
+\section{Pruning}
+The idea of \emph{reduced error pruning} is to consider each node in
+the tree as a candidate for removal.  A node is removed if the
+resulting pruned tree performs at least as well as the original tree
+over a separate \emph{validation dataset}, i.e. a dataset not used
+during training.  When a node is removed, the subtree rooted at that
+node is replaced by a leaf node, to which the majority classification
+of examples in that node is assigned.
+
+For the purpose of pruning, we have to split our original training
+data into one training set for building the tree and one validation
+set for pruning.  Notice, that using the test set for validation would
+be cheating because we would then no longer be able to use the test
+set for independently estimating the true error of our pruned decision
+tree.  Instead, we will randomly partition the original training set into
+training and validation set.  This can be done by defining a function
+which randomly reorders the data samples and returns the first and second
+parts separately:
+\begin{verbatim}
+import random
+
+def partition(data, fraction):
+    ldata = list(data)
+    random.shuffle(ldata)
+    breakPoint = int(len(ldata) * fraction)
+    return ldata[:breakPoint], ldata[breakPoint:]
+
+monk1train, monk1val = partition(m.monk1, 0.6)
+\end{verbatim}
+
+In the file \verb!dtree.py! there is a utility function \texttt{allPruned}
+which returns a sequence of all possible ways a given tree can be pruned.
+
+Write code which performs the complete pruning by repeatedly calling
+\texttt{allPruned} and picking the tree which gives the best
+classification performance on the validation dataset.  You should stop
+pruning when all the pruned trees perform worse than the current
+candidate.
+
+\begin{tcolorbox}
+\textbf{Assignment 6:}
+Explain pruning from a bias variance trade-off perspective.
+\end{tcolorbox}
+
+\begin{tcolorbox}
+\textbf{Assignment 7:} Evaluate the effect pruning has on the test
+error for the \texttt{monk1} and \texttt{monk3} datasets, in
+particular determine the optimal partition into training and pruning
+by optimizing the parameter \texttt{fraction}.  Plot the
+classification error on the test sets as a function of the parameter
+\texttt{fraction} $\in \{0.3,0.4,0.5,0.6,0.7,0.8\}$. \\
+
+Note that the split of the data is random. We therefore need to compute 
+the statistics over several runs of the split to be able to draw any 
+conclusions. Reasonable statistics includes mean and a measure of the spread.
+Do remember to print axes labels, legends and data points as you will not pass without them.
+\end{tcolorbox}
+
+
+\end{document}
